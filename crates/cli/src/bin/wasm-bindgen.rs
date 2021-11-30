@@ -22,7 +22,7 @@ Options:
     --out-dir DIR                Output directory
     --out-name VAR               Set a custom output filename (Without extension. Defaults to crate name)
     --target TARGET              What type of output to generate, valid
-                                 values are [web, bundler, nodejs, no-modules, deno],
+                                 values are [web, bundler, nodejs, no-modules, deno, wasm2c],
                                  and the default is [bundler]
     --no-modules-global VAR      Name of the global variable to initialize
     --browser                    Hint that JS should only be compatible with a browser
@@ -90,6 +90,13 @@ fn main() {
 }
 
 fn rmain(args: &Args) -> Result<(), Error> {
+    if let Some(s) = &args.flag_target {
+        if s.as_str() == "wasm2c" {
+            return rmain_wasm2c(args);
+        }
+    }
+
+
     let input = match args.arg_input {
         Some(ref s) => s,
         None => bail!("input file expected"),
@@ -138,6 +145,68 @@ fn rmain(args: &Args) -> Result<(), Error> {
             "test" => b.encode_into(EncodeInto::Test),
             "always" => b.encode_into(EncodeInto::Always),
             "never" => b.encode_into(EncodeInto::Never),
+            s => bail!("invalid encode-into mode: `{}`", s),
+        };
+    }
+
+    let out_dir = match args.flag_out_dir {
+        Some(ref p) => p,
+        None => bail!("the `--out-dir` argument is now required"),
+    };
+
+    b.generate(out_dir)
+}
+
+fn rmain_wasm2c(args: &Args) -> Result<(), Error> {
+    let input = match args.arg_input {
+        Some(ref s) => s,
+        None => bail!("input file expected"),
+    };
+
+    let typescript = args.flag_typescript || !args.flag_no_typescript;
+
+    let mut b = wasm_bindgen_cli_support_wasm2c::Bindgen::new();
+    if let Some(name) = &args.flag_target {
+        match name.as_str() {
+            "bundler" => b.bundler(true)?,
+            "web" => b.web(true)?,
+            "no-modules" => b.no_modules(true)?,
+            "nodejs" => b.nodejs(true)?,
+            "deno" => b.deno(true)?,
+            "wasm2c" => b.wasm2c(true)?,
+            s => bail!("invalid encode-into mode: `{}`", s),
+        };
+    }
+    b.input_path(input)
+        .nodejs(args.flag_nodejs)?
+        .web(args.flag_web)?
+        .browser(args.flag_browser)?
+        .no_modules(args.flag_no_modules)?
+        .debug(args.flag_debug)
+        .demangle(!args.flag_no_demangle)
+        .keep_debug(args.flag_keep_debug)
+        .remove_name_section(args.flag_remove_name_section)
+        .remove_producers_section(args.flag_remove_producers_section)
+        .typescript(typescript)
+        .omit_imports(args.flag_omit_imports)
+        .omit_default_module_path(args.flag_omit_default_module_path);
+    if let Some(true) = args.flag_weak_refs {
+        b.weak_refs(true);
+    }
+    if let Some(true) = args.flag_reference_types {
+        b.reference_types(true);
+    }
+    if let Some(ref name) = args.flag_no_modules_global {
+        b.no_modules_global(name)?;
+    }
+    if let Some(ref name) = args.flag_out_name {
+        b.out_name(name);
+    }
+    if let Some(mode) = &args.flag_encode_into {
+        match mode.as_str() {
+            "test" => b.encode_into(wasm_bindgen_cli_support_wasm2c::EncodeInto::Test),
+            "always" => b.encode_into(wasm_bindgen_cli_support_wasm2c::EncodeInto::Always),
+            "never" => b.encode_into(wasm_bindgen_cli_support_wasm2c::EncodeInto::Never),
             s => bail!("invalid encode-into mode: `{}`", s),
         };
     }
