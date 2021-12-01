@@ -570,7 +570,7 @@ impl Bindgen {
             }
         };
 
-        println!("XIIIX: {}", stem.to_string());
+        log::trace!("return Output {:?}", stem);
         Ok(Output {
             module,
             stem: stem.to_string(),
@@ -795,7 +795,6 @@ impl Output {
         let extension = if gen.mode().nodejs_experimental_modules() {
             "mjs"
         } else {
-            // wasm2c移植
             if let Generated::C(_) = gen {
                 "h"
             }

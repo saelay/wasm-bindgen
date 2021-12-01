@@ -111,8 +111,9 @@ impl<'a, 'b> Builder<'a, 'b> {
         {
             bail!("generating a shim for something asserted to have no shim");
         }
-        println!("\n\n\n");
-        println!("adapter: {:?}", adapter);
+
+        log::trace!("adapter: {:?}", adapter);
+
         let mut params = adapter.params.iter();
         let mut function_args = Vec::new();
         let mut arg_tys = Vec::new();
@@ -121,7 +122,6 @@ impl<'a, 'b> Builder<'a, 'b> {
         // method, so the leading parameter is the this pointer stored on
         // the JS object, so synthesize that here.
         let mut js = JsBuilder::new(self.cx);
-        println!("jspr0: {}", js.prelude);
         match self.method {
             Some(consumes_self) => {
                 drop(params.next());
@@ -129,20 +129,16 @@ impl<'a, 'b> Builder<'a, 'b> {
                     js.prelude(
                         "if (this.ptr == 0) throw new Error('Attempt to use a moved value');",
                     );
-                    println!("jspr1: {}", js.prelude);
                 }
                 if consumes_self {
                     js.prelude("const ptr = this.__destroy_into_raw();");
                     js.args.push("ptr".into());
-                    println!("jspr2: {}", js.prelude);
                 } else {
                     js.args.push("this.ptr".into());
-                    println!("jspr3: {}", js.prelude);
                 }
             }
             None => {}
         }
-        println!("jspr01: {}", js.prelude);
         for (i, param) in params.enumerate() {
             let arg = match explicit_arg_names {
                 Some(list) => list[i].clone(),
@@ -152,9 +148,10 @@ impl<'a, 'b> Builder<'a, 'b> {
             function_args.push(arg);
             arg_tys.push(param);
         }
-        println!("funciton args: {:?}", function_args);
-        println!("funciton arg typess: {:?}", arg_tys);
-        println!("jspr02: {}", js.prelude);
+
+        log::trace!("function args: {:?}", function_args);
+        log::trace!("function arg types: {:?}", arg_tys);
+
         // Translate all instructions, the fun loop!
         //
         // This loop will process all instructions for this adapter function.
@@ -173,15 +170,12 @@ impl<'a, 'b> Builder<'a, 'b> {
         }
         //self.symbol_builder.register();
 
-        println!("jspr03: {}", js.prelude);
-        println!("js.stack: {:?}, adapter.results={:?}", js.stack, adapter.results);
         assert_eq!(js.stack.len(), adapter.results.len());
         match js.stack.len() {
             0 => {}
             1 => {
                 let val = js.pop();
                 js.prelude(&format!("return {};", val));
-                println!("jspr4: {}", js.prelude);
             }
 
             // TODO: this should be pretty trivial to support (commented out
@@ -197,7 +191,6 @@ impl<'a, 'b> Builder<'a, 'b> {
             // }
         }
         assert!(js.stack.is_empty());
-        println!("jspr04: {}", js.prelude);
         // // Remove extraneous typescript args which were synthesized and aren't
         // // part of our function shim.
         // while self.ts_args.len() > function_args.len() {
@@ -339,14 +332,10 @@ impl<'a, 'b> Builder<'a, 'b> {
         }
         code.push_str(&actual_args.join(", "));
         code.push_str(") {\n");
-        println!("code1: {}", code);
         let mut call = js.prelude;
-        println!("code(js.prelude): {}", call);
         if js.finally.len() != 0 {
-            // wasm2c移植:
             call = format!("{}\n{}\n", call, js.finally);
         }
-        println!("code2: {}", code);
         if self.catch {
             js.cx.expose_handle_error()?;
         }
@@ -361,7 +350,6 @@ impl<'a, 'b> Builder<'a, 'b> {
 
         code.push_str(&call);
         code.push_str("}");
-        println!("code3: {}", code);
 
         // Rust Structs' fields converted into Getter and Setter functions before
         // we decode them from webassembly, finding if a function is a field
@@ -597,7 +585,6 @@ impl<'a, 'b> JsBuilder<'a, 'b> {
     ) -> Result<(), Error> {
         let val = self.pop();
         let i = self.tmp();
-        // wasm2c移植
         self.prelude(&format!(
             "u32 len{i} = strlen({0});",
             val,
@@ -631,14 +618,12 @@ impl<'a, 'b> JsBuilder<'a, 'b> {
 }
 
 fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, adapter: &Adapter) -> Result<(), Error> {
-    println!("INST?: {:?}", instr);
+    log::trace!("INST: {:?}", instr);
     match instr {
         Instruction::Standard(wit_walrus::Instruction::ArgGet(n)) => {
             let arg = js.arg(*n).to_string();
-            println!("    INST_STANDARD_{}: {}", *n, arg);
             /*if *n == 0 {
                 // maybe new symbol
-                println!("new symbol?");
                 //symbol_builder.register();
             }*/
             //symbol_builder.arg(&arg);
@@ -664,12 +649,9 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
                 args.push(js.pop());
             }
             args.reverse();
-            println!("    INST ARGS: {:?}", args);
 
             // Call the function through an export of the underlying module.
             let call = invoc.invoke(js.cx, &args, &mut js.prelude, log_error, adapter)?;
-
-            println!("    INST CALL: {}", call);
 
             // And then figure out how to actually handle where the call
             // happens. This is pretty conditional depending on the number of
@@ -682,11 +664,9 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
                 (true, _) => panic!("deferred calls must have no results"),
                 (false, 0) => {
                     js.prelude(&format!("{};", call));
-                    println!("    INST PREL: {}", js.prelude);
                 }
                 (false, n) => {
                     /* 戻り値あり、nは個数 */
-                    // wasm2c移植　戻り値の型がわからん。とりあえずu32
                     if adapter.results.len() > 0 {
                         match &adapter.results[0] {
                             /*
@@ -753,11 +733,9 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
                     //js.prelude(&format!("u32 ptr = {};", call));
                     //js.prelude(&format!("WASM_RT_ADD_PREFIX({}) ret;", name));
                     if n == 1 {
-                        println!("INST_MATCHDEFER: {}", "ret");
                         js.push("ret".to_string());
                     } else {
                         for i in 0..n {
-                            println!("INST_MATCHDEFER2: ret[{}]", i);
                             js.push(format!("ret[{}]", i));
                         }
                     }
@@ -1026,7 +1004,6 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
             let func = js.cx.pass_to_wasm_function(kind.clone(), *mem)?;
             let malloc = js.cx.export_name_of(*malloc);
             let i = js.tmp();
-            // wasm2c移植
             js.prelude(&format!(
                 "u32 ptr{i} = (WASM_RT_ADD_PREFIX(Z___wbindgen_mallocZ_ii))({val}_len);",
                 val = val,
@@ -1125,7 +1102,6 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
                 _ => symbol_builder.arg_type("???"),
             }
             */
-            // wasm2c移植
             js.prelude(&format!(
                 "u32 ptr{i} = (WASM_RT_ADD_PREFIX(Z___wbindgen_mallocZ_ii))({val}_len);",
                 val = val,
@@ -1504,7 +1480,6 @@ impl Invocation {
             Invocation::Core { id, .. } => {
                 let name = cx.export_name_of(*id);
                 //let s = format!("wasm.{}({})", name, args.join(", "));
-                // wasm2c移植: wasm2cが生成した関数ポインタを呼ぶように変更
                 let mut postfix = String::new();
 
                 if adapter.results.len() > 0 {
@@ -1612,7 +1587,6 @@ impl Invocation {
                 }
                 let s = format!("(WASM_RT_ADD_PREFIX(Z_{}Z_{}))({})", name, postfix, args.join(", "));
                 //symbol_builder.name(&name);
-                println!("INVOKE FUNCNAME: {}", s);
                 Ok(s)
             }
             Invocation::Adapter(id) => {

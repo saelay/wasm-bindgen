@@ -304,9 +304,9 @@ impl<'a> Context<'a> {
         contents: &str,
         comments: Option<&str>,
     ) -> Result<(), Error> {
-        println!("EXPORT NAME: {}", export_name);
-        println!("EXPORT CONTENTS: {}", contents);
-        println!("EXPORT COMMENTS: {:?}", comments);
+        log::trace!("EXPORT NAME: {}", export_name);
+        log::trace!("EXPORT CONTENTS: {}", contents);
+        log::trace!("EXPORT COMMENTS: {:?}", comments);
         let definition_name = self.generate_identifier(export_name);
         if contents.starts_with("class") && definition_name != export_name {
             bail!("cannot shadow already defined class `{}`", export_name);
@@ -341,7 +341,6 @@ impl<'a> Context<'a> {
                     let body = &contents[8..];
                     if export_name == definition_name {
                         //format!("export function {}{}\n", export_name, body)
-                        // wasm2c移植:
                         let vec: Vec<&str> = body.split("###").collect();
                         let body;
                         let ret_type;
@@ -671,7 +670,6 @@ impl<'a> Context<'a> {
             // expose the same initialization function as `--target no-modules`
             // as the default export of the module.
             OutputMode::Web | OutputMode::Wasm2c => {
-                // wasm2c移植
                 self.imports_post.push_str("#pragma once\n");
                 self.imports_post.push_str("#include <wasm-rt.h>\n");
                 self.imports_post.push_str("#include <wasm-rt-impl.h>\n");
@@ -702,23 +700,18 @@ impl<'a> Context<'a> {
             !self.config.mode.uses_es_modules() || js.is_empty(),
             "ES modules require imports to be at the start of the file"
         );
-        println!("XIMPORTXX: {}", &imports);
         js.push_str(&imports);
         js.push_str("\n");
-        println!("XIMPORTS_POSTXX: {}", &self.imports_post);
         js.push_str(&self.imports_post);
         js.push_str("\n");
 
         // Emit all our exports from this module
-        println!("XGLOBALSXX: {}", &self.globals);
         js.push_str(&self.globals);
         js.push_str("\n");
 
         // Generate the initialization glue, if there was any
-        println!("XINITXX: {}", &init_js);
         js.push_str(&init_js);
         js.push_str("\n");
-        println!("XFOOTERXX: {}", &footer);
         js.push_str(&footer);
         js.push_str("\n");
         if self.config.mode.no_modules() {
@@ -729,7 +722,6 @@ impl<'a> Context<'a> {
             js = js.replace("\n\n\n", "\n\n");
         }
 
-        println!("VVV: {}", js);
         Ok((js, ts, start))
     }
 
@@ -1168,7 +1160,6 @@ impl<'a> Context<'a> {
         ));
         ts_dst.push_str("  free(): void;\n");
         dst.push_str(&class.contents);
-        println!("TS CONTENTS: {}", class.contents);
         ts_dst.push_str(&class.typescript);
 
         let mut fields = class.typescript_fields.keys().collect::<Vec<_>>();
@@ -2670,8 +2661,7 @@ impl<'a> Context<'a> {
                             self.typescript.push_str(ts_sig);
                             self.typescript.push_str(";\n");
                         }
-                        // wasm2c移植: 
-                        println!("EXPORT: {} {}", &name, &format!("function{}", code));
+                        
                         self.export(
                             &name,
                             &format!("function{}###{}",
@@ -2812,7 +2802,6 @@ impl<'a> Context<'a> {
                 assert_eq!(catch, false);
                 assert_eq!(log_error, false);
 
-                println!("XXX:XXX: {}", &self.adapter_name(id));
                 self.globals.push_str("function ");
                 self.globals.push_str(&self.adapter_name(id));
                 self.globals.push_str(&code);
@@ -3818,7 +3807,6 @@ impl<'a> Context<'a> {
             }
         });
         if let Some(export) = export {
-            println!("EXPNAME::: {}", export.name);
             return export.name.clone();
         }
         let default_name = format!("__wbindgen_export_{}", self.next_export_idx);
