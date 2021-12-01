@@ -2185,14 +2185,17 @@ impl<'a> Context<'a> {
 
     fn expose_uint64_cvt_shim(&mut self) -> &'static str {
         let name = "uint64CvtShim";
+        /*
         if !self.should_write_global(name) {
             return name;
         }
         let n = self.expose_u32_cvt_shim();
+        
         self.global(&format!(
             "const {} = new BigUint64Array({}.buffer);",
             name, n
         ));
+        */
         name
     }
 
@@ -2200,6 +2203,7 @@ impl<'a> Context<'a> {
         if !self.should_write_global("is_like_none") {
             return;
         }
+        /*
         self.global(
             "
             function isLikeNone(x) {
@@ -2207,6 +2211,7 @@ impl<'a> Context<'a> {
             }
         ",
         );
+        */
     }
 
     fn expose_make_mut_closure(&mut self) -> Result<(), Error> {

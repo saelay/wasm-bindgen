@@ -1936,6 +1936,7 @@ impl<'a> Context<'a> {
         if !self.should_write_global("is_like_none") {
             return;
         }
+        /*
         self.global(
             "
             function isLikeNone(x) {
@@ -1943,6 +1944,7 @@ impl<'a> Context<'a> {
             }
         ",
         );
+        */
     }
 
     fn expose_make_mut_closure(&mut self) -> Result<(), Error> {

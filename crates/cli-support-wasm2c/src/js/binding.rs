@@ -556,9 +556,11 @@ impl<'a, 'b> JsBuilder<'a, 'b> {
             return;
         }
         self.cx.expose_is_like_none();
+        /*
         self.prelude(&format!("if (!isLikeNone({})) {{", arg));
         self.assert_number(arg);
         self.prelude("}");
+        */
     }
 
     fn assert_optional_bool(&mut self, arg: &str) {
@@ -566,9 +568,11 @@ impl<'a, 'b> JsBuilder<'a, 'b> {
             return;
         }
         self.cx.expose_is_like_none();
+        /*
         self.prelude(&format!("if (!isLikeNone({})) {{", arg));
         self.assert_bool(arg);
         self.prelude("}");
+        */
     }
 
     fn assert_not_moved(&mut self, arg: &str) {
@@ -943,15 +947,23 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
             let i = js.tmp();
             js.prelude(&format!(
                 "\
-                    {f}[0] = isLikeNone({val}) ? BigInt(0) : {val};
-                    const low{i} = u32CvtShim[0];
-                    const high{i} = u32CvtShim[1];
+                    u32 is_none{i};
+                    u32 low{i}, high{i};
+                    if ({val}) {{
+                        is_none{i} = false;
+                        low{i} = (u32)((*{val}) & 0x00000000FFFFFFFF);
+                        high{i} = (u32)(((*{val}) & 0xFFFFFFFF00000000) >> 32);
+                    }}
+                    else {{
+                        is_none{i} = true;
+                        low{i} = high{i} = 0;
+                    }}
                 ",
                 i = i,
-                f = f,
+                //f = f,
                 val = val,
             ));
-            js.push(format!("!isLikeNone({0})", val));
+            js.push(format!("!is_none{}", i));
             js.push(format!("low{}", i));
             js.push(format!("high{}", i));
         }
@@ -975,14 +987,14 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
             let val = js.pop();
             js.cx.expose_is_like_none();
             js.assert_optional_number(&val);
-            js.push(format!("isLikeNone({0}) ? 0xFFFFFF : {0}", val));
+            js.push(format!("!{0} ? 0xFFFFFF : *{0}", val));
         }
 
         Instruction::I32FromOptionBool => {
             let val = js.pop();
             js.cx.expose_is_like_none();
             js.assert_optional_bool(&val);
-            js.push(format!("isLikeNone({0}) ? 0xFFFFFF : {0} ? 1 : 0", val));
+            js.push(format!("!{0} ? 0xFFFFFF : *{0} ? 1 : 0", val));
         }
 
         Instruction::I32FromOptionChar => {
@@ -1005,8 +1017,8 @@ fn instruction(js: &mut JsBuilder, instr: &Instruction, log_error: &mut bool, ad
             let val = js.pop();
             js.cx.expose_is_like_none();
             js.assert_optional_number(&val);
-            js.push(format!("!isLikeNone({0})", val));
-            js.push(format!("isLikeNone({0}) ? 0 : {0}", val));
+            js.push(format!("{0}", val));
+            js.push(format!("!{0} ? 0 : *{0}", val));
         }
 
         Instruction::VectorToMemory { kind, malloc, mem } => {
@@ -1571,9 +1583,18 @@ impl Invocation {
                                 AdapterType::I64,
                                 */
                                 AdapterType::Vector(_kind) => "ii".to_owned(),
-                                /*
-                                AdapterType::Option(Box<AdapterType>),
-                                */
+                                
+                                AdapterType::Option(adapter_type) => {
+                                    match adapter_type.as_ref() {
+                                        AdapterType::U8 => "i".to_owned(),
+                                        AdapterType::S8 => "i".to_owned(),
+                                        AdapterType::U16 => "i".to_owned(),
+                                        AdapterType::S16 => "i".to_owned(),
+                                        AdapterType::U64 => "iii".to_owned(),
+                                        AdapterType::S64 => "iii".to_owned(),
+                                        _ => "ii".to_owned(),
+                                    }
+                                }
                                 AdapterType::Struct(_s) => "i".to_owned(),
                                 /*
                                 AdapterType::NamedExternref(String),
