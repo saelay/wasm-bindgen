@@ -1503,8 +1503,23 @@ impl Invocation {
                         AdapterType::I32 => "i".to_owned(),
                         /*
                         AdapterType::I64,
-                        AdapterType::Option(Box<AdapterType>),
                         */
+                        AdapterType::Option(adapter_type) => {
+                            match adapter_type.as_ref() {
+                                AdapterType::S8 => "i".to_owned(),
+                                AdapterType::S16 => "i".to_owned(),
+                                AdapterType::S32 => "i".to_owned(),
+                                //AdapterType::S64 => "u32",
+                                AdapterType::U8 => "i".to_owned(),
+                                AdapterType::U16 => "i".to_owned(),
+                                AdapterType::U32 => "i".to_owned(),
+                                //AdapterType::U64 => "i".to_owned(),
+                                AdapterType::F32 => "f".to_owned(),
+                                AdapterType::F64 => "d".to_owned(),
+                                _ => "?".to_owned(),
+                            }
+                        }
+                        
                         AdapterType::Struct(_s) => "i".to_owned(),//s.to_owned(),
                         /*
                         AdapterType::NamedExternref(String),
