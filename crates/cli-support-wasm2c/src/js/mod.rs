@@ -84,6 +84,7 @@ WASM_RT_ADD_PREFIX(wasm_slice_ptr_get_ptr)(
 static inline
 WASM_RT_ADD_PREFIX(wasm_slice_ptr_t)
 WASM_RT_ADD_PREFIX(wasm_slice_ptr_alloc)(u32 length) {
+    extern u32 (*WASM_RT_ADD_PREFIX(Z___wbindgen_mallocZ_ii))(u32);
     WASM_RT_ADD_PREFIX(wasm_slice_ptr_t) ret;
     ret.address = WASM_RT_ADD_PREFIX(Z___wbindgen_mallocZ_ii)(length);
     if (ret.address == 0) {
@@ -99,6 +100,7 @@ void
 WASM_RT_ADD_PREFIX(wasm_slice_ptr_free)(
     WASM_RT_ADD_PREFIX(wasm_slice_ptr_t) ptr)
 {
+    extern void (*WASM_RT_ADD_PREFIX(Z___wbindgen_freeZ_vii))(u32, u32);
     if (WASM_RT_ADD_PREFIX(wasm_slice_ptr_is_null)(ptr)) {
         return;
     }
@@ -107,6 +109,33 @@ WASM_RT_ADD_PREFIX(wasm_slice_ptr_free)(
         ptr.address,
         ptr.length
     );
+}
+
+static inline
+WASM_RT_ADD_PREFIX(wasm_slice_ptr_t)
+WASM_RT_ADD_PREFIX(wasm_slice_ptr_memwrite)(wasm_slice_ptr_t dst, const void* src, u32 length) {
+    memcpy(
+        WASM_RT_ADD_PREFIX(Z_memory)->data + dst.address,
+        src,
+        length);
+}
+
+static inline
+void*
+WASM_RT_ADD_PREFIX(wasm_slice_ptr_memread)(void* dst, wasm_slice_ptr_t src, u32 length) {
+    memcpy(
+        dst,
+        WASM_RT_ADD_PREFIX(Z_memory)->data + src.address,
+        length);
+}
+
+static inline
+WASM_RT_ADD_PREFIX(wasm_slice_ptr_t)
+WASM_RT_ADD_PREFIX(wasm_slice_ptr_memcpy)(wasm_slice_ptr_t dst), wasm_slice_ptr_t src, u32 length) {
+    memcpy(
+        WASM_RT_ADD_PREFIX(Z_memory)->data + dst.address,
+        WASM_RT_ADD_PREFIX(Z_memory)->data + src.address,
+        length);
 }
 
 static inline
@@ -165,6 +194,8 @@ WASM_RT_ADD_PREFIX(utf8_to_utf32)(const char* s) {
     else {
         return 0; /* err */
     }
+
+    return ch;
 }
 
 static inline
@@ -1252,7 +1283,7 @@ impl<'a> Context<'a> {
         if !self.should_write_global("not_defined") {
             return;
         }
-        self.global("function notDefined(what) { return () => { throw new Error(`${what} is not defined`); }; }");
+        //self.global("function notDefined(what) { return () => { throw new Error(`${what} is not defined`); }; }");
     }
 
     fn expose_assert_num(&mut self) {
